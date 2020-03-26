@@ -42,9 +42,9 @@ class PromoMessagesController < ApplicationController
 
   def create
     @message = PromoMessage.new(promo_message_params)
-    recipients = get_recent_users_for_date_period.pluck(:phone)
+    recipient_phones = get_recent_users_for_date_period.pluck(:phone)
 
-    if @message.save && send_message(recipients)
+    if @message.save && send_message(recipient_phones)
       redirect_to promo_messages_path, notice: "Messages Sent Successfully!"
     end
   end
@@ -66,9 +66,9 @@ class PromoMessagesController < ApplicationController
       end
     end
 
-    def send_message(recipients)
-      recipients.each do |r|
-        PromoMessagesSendJob.perform_later(r)
+    def send_message(recipient_phones)
+      recipient_phones.each do |phone|
+        PromoMessagesSendJob.perform_later(phone)
       end
     end
 
