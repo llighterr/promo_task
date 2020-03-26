@@ -1,15 +1,17 @@
 # Модели
-
-
-class PromoMessage < ActiveRecord::Base
+class ApplicationRecord < ActiveRecord::Base
+  self.abstract_class = true
 end
 
-class User < ActiveRecord::Base
+class PromoMessage < ApplicationRecord
+end
+
+class User < ApplicationRecord
   has_many :ads
   scope :recent, -> { order("created_at DESC") }
 end
 
-class Ad < ActiveRecord::Base
+class Ad < ApplicationRecord
 end
 
 
