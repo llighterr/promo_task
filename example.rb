@@ -19,8 +19,6 @@ end
 
 # Контроллеры
 class PromoMessagesController < ApplicationController
-  attr_reader :provider
-
   def new
     @message = PromoMessage.new
     if params[:date_from].present? && params[:date_to].present?
