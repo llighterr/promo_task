@@ -37,7 +37,7 @@ end
 class PromoMessagesController < ApplicationController
   def new
     @message = PromoMessage.new
-    @users = get_recent_users_for_date_period
+    @users = get_recent_users_for_date_period.page(params[:page])
   end
 
   def create
@@ -79,7 +79,7 @@ class PromoMessagesController < ApplicationController
 
     def get_recent_users_for_date_period
       if params[:date_from].present? && params[:date_to].present?
-        User.recent.page(params[:page]).published_one_ad.
+        User.recent.published_one_ad.
           merge(Ad.published_between(params[:date_from], params[:date_to]))
       else
         User.none
