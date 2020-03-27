@@ -64,6 +64,9 @@ class PromoMessagesController < ApplicationController
     users = get_recent_users_for_date_period
     send_data UserDecorator.new(users).to_csv,
       filename: "promotion-users-#{Time.zone.today}.csv"
+    # NOTE: if you experience memory leaks using #send_data, try to release
+    # memory faster adding `GC.start` after this action.
+    # For additional details please check https://www.reddit.com/r/rails/comments/8dy41g/huge_memory_consumption_exporting_data_to_excelcsv/
   end
 
   private
