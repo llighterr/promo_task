@@ -30,8 +30,19 @@ class Ad < ApplicationRecord
   end
 end
 
+# Декораторы
+require 'csv'
 
-
+class UserDecorator < SimpleDelegator
+  def self.to_csv
+    CSV.generate(headers: true) do |csv|
+      csv << column_names
+      find_each do |user|
+        csv << user.attributes.values
+      end
+    end
+  end
+end
 
 # Контроллеры
 class PromoMessagesController < ApplicationController
@@ -51,37 +62,28 @@ class PromoMessagesController < ApplicationController
 
   def download_csv
     users = get_recent_users_for_date_period
-    send_data to_csv(users), filename: "promotion-users-#{Time.zone.today}.csv"
+    send_data UserDecorator.new(users).to_csv,
+      filename: "promotion-users-#{Time.zone.today}.csv"
   end
 
   private
 
-    def to_csv(data)
-      attributes = %w(id phone name)
-      CSV.generate(headers: true) do |csv|
-        csv << attributes
-        data.each do |user|
-          csv << attributes.map { |attr| user.send(attr) }
-        end
-      end
+  def send_message(recipient_phones)
+    recipient_phones.each do |phone|
+      PromoMessagesSendJob.perform_later(phone)
     end
+  end
 
-    def send_message(recipient_phones)
-      recipient_phones.each do |phone|
-        PromoMessagesSendJob.perform_later(phone)
-      end
+  def get_recent_users_for_date_period
+    if params[:date_from].present? && params[:date_to].present?
+      User.recent.published_one_ad.
+        merge(Ad.published_between(params[:date_from], params[:date_to]))
+    else
+      User.none
     end
+  end
 
-    def get_recent_users_for_date_period
-      if params[:date_from].present? && params[:date_to].present?
-        User.recent.published_one_ad.
-          merge(Ad.published_between(params[:date_from], params[:date_to]))
-      else
-        User.none
-      end
-    end
-
-    def promo_message_params
-      params.permit(:body, :date_from, :date_to)
-    end
+  def promo_message_params
+    params.permit(:body, :date_from, :date_to)
+  end
 end
