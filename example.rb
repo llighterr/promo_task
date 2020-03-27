@@ -44,6 +44,52 @@ class UserDecorator < SimpleDelegator
   end
 end
 
+# Интеракторы
+class SendPromoMessageToUsers
+  delegate :params, to: :@view
+
+  def initialize(view:, users:)
+    @view = view
+    @users = users
+    @errors = []
+  end
+
+  def call
+    save_message
+    send_message
+
+    if errors.present?
+      { errors: errors }
+    else
+      { success: 'Message was saved successfully, users will receive it shortly' }
+    end
+  end
+
+  private
+
+  attr_reader :errors, :users
+
+  def save_message
+    message = PromoMessage.new(promo_message_params)
+    message.save
+    errors.concat(message.errors.full_messages)
+  end
+
+  def promo_message_params
+    params.permit(:body, :date_from, :date_to)
+  end
+
+  def send_message
+    recipient_phones.each do |phone|
+      PromoMessagesSendJob.perform_later(phone)
+    end
+  end
+
+  def recipient_phones
+    users.pluck(:phone)
+  end
+end
+
 # Контроллеры
 class PromoMessagesController < ApplicationController
   def new
@@ -52,11 +98,15 @@ class PromoMessagesController < ApplicationController
   end
 
   def create
-    @message = PromoMessage.new(promo_message_params)
-    recipient_phones = get_recent_users_for_date_period.pluck(:phone)
+    result = SendPromoMessageToUsers.new(
+      view: view_context,
+      users: get_recent_users_for_date_period
+    )
 
-    if @message.save && send_message(recipient_phones)
-      redirect_to promo_messages_path, notice: "Messages Sent Successfully!"
+    if result[:success]
+      redirect_to promo_messages_path, notice: result[:success]
+    else
+      render action: :new, alert: result[:errors].join(' ')
     end
   end
 
@@ -71,12 +121,6 @@ class PromoMessagesController < ApplicationController
 
   private
 
-  def send_message(recipient_phones)
-    recipient_phones.each do |phone|
-      PromoMessagesSendJob.perform_later(phone)
-    end
-  end
-
   def get_recent_users_for_date_period
     if params[:date_from].present? && params[:date_to].present?
       User.recent.published_one_ad.
@@ -84,9 +128,5 @@ class PromoMessagesController < ApplicationController
     else
       User.none
     end
-  end
-
-  def promo_message_params
-    params.permit(:body, :date_from, :date_to)
   end
 end
